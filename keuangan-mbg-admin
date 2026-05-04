@@ -1,0 +1,50 @@
+import streamlit as st
+import pandas as pd
+from datetime import datetime
+
+# Konfigurasi Halaman
+st.set_page_config(page_title="Sistem Keuangan MBG", layout="wide")
+
+st.title("📊 Sistem Administrasi Keuangan MBG")
+st.subheader("Rekapitulasi Transaksi & Invoice Digital")
+
+# Database sederhana (Dalam produksi, gunakan database cloud atau Google Sheets)
+if 'data_keuangan' not in st.session_state:
+    st.session_state.data_keuangan = pd.DataFrame(
+        columns=['Tanggal', 'Kategori', 'Keterangan', 'Jumlah', 'Tipe']
+    )
+
+# Sidebar untuk Input
+with st.sidebar:
+    st.header("Tambah Transaksi Baru")
+    tgl = st.date_input("Tanggal", datetime.now())
+    kat = st.selectbox("Kategori", ["Bahan Baku", "Operasional", "Honor", "Logistik", "Lainnya"])
+    ket = st.text_input("Keterangan Transaksi")
+    jml = st.number_input("Nominal (Rp)", min_value=0, step=1000)
+    tipe = st.radio("Tipe", ["Pemasukan", "Pengeluaran"])
+    
+    if st.button("Simpan Transaksi"):
+        new_data = pd.DataFrame([[tgl, kat, ket, jml, tipe]], 
+                                columns=['Tanggal', 'Kategori', 'Keterangan', 'Jumlah', 'Tipe'])
+        st.session_state.data_keuangan = pd.concat([st.session_state.data_keuangan, new_data], ignore_index=True)
+        st.success("Data berhasil dicatat!")
+
+# Dashboard Utama
+col1, col2, col3 = st.columns(3)
+total_masuk = st.session_state.data_keuangan[st.session_state.data_keuangan['Tipe'] == 'Pemasukan']['Jumlah'].sum()
+total_keluar = st.session_state.data_keuangan[st.session_state.data_keuangan['Tipe'] == 'Pengeluaran']['Jumlah'].sum()
+saldo = total_masuk - total_keluar
+
+col1.metric("Total Pemasukan", f"Rp {total_masuk:,.0f}")
+col2.metric("Total Pengeluaran", f"Rp {total_keluar:,.0f}")
+col3.metric("Sisa Saldo Kas", f"Rp {saldo:,.0f}")
+
+st.divider()
+
+# Tabel Rekapitulasi
+st.write("### Daftar Transaksi Terkini")
+st.dataframe(st.session_state.data_keuangan, use_container_width=True)
+
+# Tombol Download CSV (Untuk Laporan ke GitHub/Excel)
+csv = st.session_state.data_keuangan.to_csv(index=False).encode('utf-8')
+st.download_button("Unduh Laporan (CSV)", data=csv, file_name="laporan_keuangan_mbg.csv", mime="text/csv")
